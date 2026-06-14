@@ -1,28 +1,36 @@
 import spatial
+import std/options
 
 type
   CellKind* = enum
-    ckActivator, ckPiston, ckRod
+    ckNull, ckActivator, ckPiston, ckRod
+
+  CellId* = int
 
   Cell* = object
+    id*: CellId
     keep*: bool = true
     case kind*: CellKind
-    of ckActivator: discard
+    of ckActivator, ckNull: discard
     of ckPiston:
       direction*: Direction
       priority*: int
       activated*: bool
+      rod*: Option[CellId] = none(CellId)
     of ckRod:
       pistonDirection*: Direction
       pistonPosition*: Position
 
-func newActivator*(): Cell = Cell(kind: ckActivator)
+const NullCell* = Cell(id: -1, kind: ckNull, keep: false)
 
-func newPiston*(direction: Direction, priority: int = 0, activated: bool = false): Cell =
-  Cell(kind: ckPiston, direction: direction, priority: priority, activated: activated)
+func newActivator*(id: CellId): Cell = 
+  Cell(id: id, kind: ckActivator)
 
-func newRod*(pistonDirection: Direction, pistonPosition: Position): Cell =
-  Cell(kind: ckRod, pistonDirection: pistonDirection, pistonPosition: pistonPosition)
+func newPiston*(id: CellId, direction: Direction, priority: int = 0, activated: bool = false): Cell =
+  Cell(id: id, kind: ckPiston, direction: direction, priority: priority, activated: activated)
+
+func newRod*(id: CellId, pistonDirection: Direction, pistonPosition: Position): Cell =
+  Cell(id: id, kind: ckRod, pistonDirection: pistonDirection, pistonPosition: pistonPosition)
 
 func is_immovable*(cell: Cell): bool = 
   cell.kind == ckRod or (cell.kind == ckPiston and cell.activated)

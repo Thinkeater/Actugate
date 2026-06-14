@@ -3,23 +3,31 @@ import spatial
 
 type
   PlanKind* = enum
-    pkExtendRod
+    pkExtendRod, pkRetractRod
 
   Plan* = ref object
     priority*: int
     case kind*: PlanKind
     of pkExtendRod:
       target*: Position
-      chain*: Table[Position, Position]
+      chain*: OrderedTable[Position, Position]
+    of pkRetractRod:
+      pistonPosition*: Position
 
 func `$`*(plan: Plan): string =
   ## The method of bringing the plan to the line
   
   case plan.kind
   of pkExtendRod:
-    "Plan(kind: pkExtendRod, priority: " & $plan.priority &
+    "ExtendRodPlan(priority: " & $plan.priority &
     ", target: " & $plan.target &
     ", chain: " & $plan.chain & ")"
+  of pkRetractRod:
+    "RetractRodPlan(priority: " & $plan.priority &
+    ", piston: " & $plan.pistonPosition & ")"
 
-func newExtendRodPlan*(priority: int, target: Position, chain: Table[Position, Position]): Plan =
+func newExtendRodPlan*(priority: int, target: Position, chain: OrderedTable[Position, Position]): Plan =
   Plan(kind: pkExtendRod, priority: priority, target: target, chain: chain)
+
+func newRetractRodPlan*(priority: int, pistonPosition: Position): Plan =
+  Plan(kind: pkRetractRod, priority: priority, pistonPosition: pistonPosition)
