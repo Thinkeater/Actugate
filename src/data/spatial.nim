@@ -15,4 +15,5 @@ func angle*(d: Direction): int {.inline.} = angle_table[d]
 func apply*(d: Direction, p: Position): Position {.inline.} = 
   ## Takes a position and a direction, returns a new position 
   ## in that direction relative to the original one.
+  
   newPos(p.x + d.dx, p.y + d.dy)

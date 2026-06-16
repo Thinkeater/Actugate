@@ -3,49 +3,61 @@ import ../data/spatial
 import raylib
 import colors
 
+const
+  CELL_SIZE = 32
+
+  BORDER_SIZE = 4
+  ROD_THICKNESS = 6
+  ROD_TIP_THICKNESS = 4
+
+  INNER_OFFSET = BORDER_SIZE * 2
+  INNER_SIZE_OFFSET = BORDER_SIZE * 4
+  ROD_TIP_LENGTH = CELL_SIZE - ROD_TIP_THICKNESS * 2
+  ROD_OFFSET = (CELL_SIZE - ROD_THICKNESS) div 2
+  TIP_OFFSET = CELL_SIZE - ROD_TIP_THICKNESS
+
 proc drawCell*(cell: Cell, pos: Position, tileSize: int) =
   let ts: int32 = tileSize.int32
   let wx = pos.x.int32 * ts
   let wy = pos.y.int32 * ts
-  const i: int32 = 4
 
   case cell.kind
   of ckActivator:
     drawRectangle(wx, wy, ts, ts, Active)
-    drawRectangle(wx + i, wy + i, ts - i*2, ts - i*2, Active.colorBrightness(-0.3))
-    drawRectangle(wx + i*2, wy + i*2, ts - i*4, ts - i*4, Active)
+    drawRectangle(wx + BORDER_SIZE, wy + BORDER_SIZE, ts - INNER_OFFSET, ts - INNER_OFFSET, Active.colorBrightness(-0.3))
+    drawRectangle(wx + INNER_OFFSET, wy + INNER_OFFSET, ts - INNER_SIZE_OFFSET, ts - INNER_SIZE_OFFSET, Active)
 
   of ckNone:
     discard
 
   of ckPiston:
     drawRectangle(wx, wy, ts, ts, Piston)
-    drawRectangle(wx + i, wy + i, ts - i*2, ts - i*2, Piston.colorBrightness(-0.3))
+    drawRectangle(wx + BORDER_SIZE, wy + BORDER_SIZE, ts - INNER_OFFSET, ts - INNER_OFFSET, Piston.colorBrightness(-0.3))
     if cell.activated:
-      drawRectangle(wx + i*2, wy + i*2, ts - i*4, ts - i*4, Active)
+      drawRectangle(wx + INNER_OFFSET, wy + INNER_OFFSET, ts - INNER_SIZE_OFFSET, ts - INNER_SIZE_OFFSET, Active)
     else:
-      drawRectangle(wx + i*2, wy + i*2, ts - i*4, ts - i*4, Inactive)
+      drawRectangle(wx + INNER_OFFSET, wy + INNER_OFFSET, ts - INNER_SIZE_OFFSET, ts - INNER_SIZE_OFFSET, Inactive)
       case cell.direction
       of RIGHT:
-        drawRectangle(wx + 28, wy + 4, 4, 24, Rod)
+        drawRectangle(wx + TIP_OFFSET, wy + BORDER_SIZE, ROD_TIP_THICKNESS, ROD_TIP_LENGTH, Rod)
       of LEFT:
-        drawRectangle(wx, wy + 4, 4, 24, Rod)
+        drawRectangle(wx, wy + BORDER_SIZE, ROD_TIP_THICKNESS, ROD_TIP_LENGTH, Rod)
       of UP:
-        drawRectangle(wx + 4, wy, 24, 4, Rod)
+        drawRectangle(wx + BORDER_SIZE, wy, ROD_TIP_LENGTH, ROD_TIP_THICKNESS, Rod)
       of DOWN:
-        drawRectangle(wx + 4, wy + 28, 24, 4, Rod)
+        drawRectangle(wx + BORDER_SIZE, wy + TIP_OFFSET, ROD_TIP_LENGTH, ROD_TIP_THICKNESS, Rod)
 
   of ckRod:
     case cell.pistonDirection
     of RIGHT:
-      drawRectangle(wx, wy + 12, ts, 8, Rod.colorBrightness(-0.3))
-      drawRectangle(wx + 28, wy + 4, 4, 24, Rod)
+      drawRectangle(wx, wy + ROD_OFFSET, ts, ROD_THICKNESS, Rod.colorBrightness(-0.3))
+      drawRectangle(wx + TIP_OFFSET, wy + BORDER_SIZE, ROD_TIP_THICKNESS, ROD_TIP_LENGTH, Rod)
     of LEFT:
-      drawRectangle(wx, wy + 12, ts, 8, Rod.colorBrightness(-0.3))
-      drawRectangle(wx, wy + 4, 4, 24, Rod)
+      drawRectangle(wx, wy + ROD_OFFSET, ts, ROD_THICKNESS, Rod.colorBrightness(-0.3))
+      drawRectangle(wx, wy + BORDER_SIZE, ROD_TIP_THICKNESS, ROD_TIP_LENGTH, Rod)
     of UP:
-      drawRectangle(wx + 12, wy, 8, ts, Rod.colorBrightness(-0.3))
-      drawRectangle(wx + 4, wy, 24, 4, Rod)
+      drawRectangle(wx + ROD_OFFSET, wy, ROD_THICKNESS, ts, Rod.colorBrightness(-0.3))
+      drawRectangle(wx + BORDER_SIZE, wy, ROD_TIP_LENGTH, ROD_TIP_THICKNESS, Rod)
     of DOWN:
-      drawRectangle(wx + 12, wy, 8, ts, Rod.colorBrightness(-0.3))
-      drawRectangle(wx + 4, wy + 28, 24, 4, Rod)
+      drawRectangle(wx + ROD_OFFSET, wy, ROD_THICKNESS, ts, Rod.colorBrightness(-0.3))
+      drawRectangle(wx + BORDER_SIZE, wy + TIP_OFFSET, ROD_TIP_LENGTH, ROD_TIP_THICKNESS, Rod)

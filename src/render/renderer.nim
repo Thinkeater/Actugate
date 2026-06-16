@@ -18,4 +18,3 @@ proc renderFrame*(r: Renderer, world: World) =
   for pos, cell in world.current:
     if cell.kind != ckNone:
       drawCell(cell, pos, r.config.tileSize)
-
