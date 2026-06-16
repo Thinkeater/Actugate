@@ -1,15 +1,16 @@
-# Package
+version = "0.0.0"
+author = "Thinkeater Studio"
+description = ""
 
-version       = "0.0.0"
-author        = "Thinkeater Studio"
-description   = "Deterministic sandbox game with pistons"
-license       = "Proprietary"
+bin = @["src/actugate"]
 
-srcDir        = "src"
-binDir        = "build"
-bin           = @["actugate"]
+let buildFlags = @[
+  "--out:build/Actugate",
+  "--nimcache:build/nimcache",
+  "--debugger:native",
+  "--stacktrace:on"
+]
+let target = "src/Actugate.nim"
 
-# Dependencies
-
-requires "nim >= 2.0.0"
-requires "naylib"
+task build, "Build the project":
+  exec "nim c " & buildFlags.join(" ") & " " & target

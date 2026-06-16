@@ -53,6 +53,8 @@ func remove*(self: var World, p: Position) =
   
   let cell = self.get(p)
   if cell.is_some:
+    if cell.kind == ckPiston and cell.rod.is_some:
+      self.remove(cell.direction.apply p)
     self.counter.del(cell.id)
     self.current.del(p)
 
@@ -165,6 +167,8 @@ func apply_plans(self: var World) =
   for pos, cell in self.current.pairs:
     if cell.keep:
       self.pending[pos] = cell
+    else:
+      self.counter.del(cell.id)
 
   for pos, plan in self.plans.mpairs:
     case plan.kind:
