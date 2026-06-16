@@ -29,5 +29,5 @@ func `$`*(plan: Plan): string =
 func newExtendRodPlan*(priority: int, target: Position, chain: OrderedTable[Position, Position]): Plan =
   Plan(kind: pkExtendRod, priority: priority, target: target, chain: chain)
 
-func newRetractRodPlan*(priority: int, pistonPosition: Position): Plan =
-  Plan(kind: pkRetractRod, priority: priority, pistonPosition: pistonPosition)
+func newRetractRodPlan*(pistonPosition: Position): Plan =
+  Plan(kind: pkRetractRod, priority: 0, pistonPosition: pistonPosition)

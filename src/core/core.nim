@@ -1,19 +1,19 @@
 import ../data/[cells, spatial, plans]
-import std/[tables, options, sets]
+import std/[tables, sets]
 import ./utils
 
 type 
   SmartCounter = object
-    nextNew: CellId
-    deleted: HashSet[CellId]
+    nextNew: CellID = 0  # always zero
+    deleted: HashSet[CellID]
 
   World* = object
-    current*: ref Table[Position, Cell] = new(ref Table[Position, Cell])
-    pending*: ref Table[Position, Cell] = new(ref Table[Position, Cell])
+    current*: Table[Position, Cell] = Table[Position, Cell]()
+    pending*: Table[Position, Cell] = Table[Position, Cell]()
     plans*: Table[Position, Plan] = initTable[Position, Plan]()
-    counter*: SmartCounter = SmartCounter(nextNew: 0, deleted: initHashSet[CellId]())
+    counter*: SmartCounter = SmartCounter(nextNew: 0, deleted: initHashSet[CellID]())
 
-func next*(counter: var SmartCounter): CellId =
+func next*(counter: var SmartCounter): CellID =
   if counter.deleted.len > 0:
     return counter.deleted.pop()
   result = counter.nextNew
@@ -25,69 +25,51 @@ func del*(counter: var SmartCounter, x: int) =
 func newWorld*(): World =
   World()
 
-func try_get*(self: World, p: Position): Option[Cell] =
-  ## Returns the Option of getting a cell by position, 
-  ## if there are no cells in the position, returns none
+func get*(self: World, p: Position): Cell {.inline.} =
+  ## TODO: add doc
   
-  if p in self.current: some(self.current[p])
-  else: none(Cell)
+  self.current.getOrDefault(p, NoneCell)
 
-func try_idget*(self: World, id: CellId): Option[Cell] =
-  ## Returns the Option of getting a cell by its ID,
-  ## if there are no cells with this ID, returns none
+func idget*(self: World, id: CellID): Cell =
+  ## TODO: add doc
   
   for pos, cell in self.current.pairs:
     if cell.id == id:
-      return some(cell)
-  none(Cell)
-
-func is_on(self: var World, p: Position): bool =
-  ## Determines whether a cell exists at the transmitted position in the current world.
-  
-  return p in self.current
-
-func mget(self: var World, p: Position): var Cell =
-  ## Returns the mutable cell from the pending world
-
-  self.current[p]
+      return cell
+  NoneCell
 
 func place*(self: var World, p: Position, cell: Cell) =
   ## Places the cell by position in the current world
   
   self.current[p] = cell
 
-func remove*(self: var World, p: Position) =
-  ## Removes the cell by position in the current world
-  
-  let opt = self.try_get(p)
-  if opt.is_some:
-    self.counter.del(opt.get().id)
-    self.current.del(p)
-
 func plan_place*(self: var World, p: Position, cell: Cell) =
   ## Places the cell by position in the pending world
   
   self.pending[p] = cell
 
+func remove*(self: var World, p: Position) =
+  ## Removes the cell by position in the current world
+  
+  let cell = self.get(p)
+  if cell.is_some:
+    self.counter.del(cell.id)
+    self.current.del(p)
+
 func plan_move(self: var World, old: Position, new: Position) =
   ## Move cells from current world old position to pending world new position
   
-  let opt = self.try_get(old)
-  if opt.is_some:
-    self.pending[new] = opt.get()
-
-func plan_mget(self: var World, p: Position): var Cell =
-  ## Returns the mutable cell from the pending world
-
-  self.pending[p]
+  let cell = self.get(old)
+  if cell.is_some:
+    self.pending[new] = cell
 
 func try_activate_piston(self: var World, p: Position, cell: var Cell): bool =
   ## Checking the conditions for piston activation
   
   for d in Direction:
     if cell.direction == d: continue
-    let opt = self.try_get(d.apply p)
-    if opt.is_some and opt.get().kind == ckActivator:
+    let cell = self.get(d.apply p)
+    if cell.kind == ckActivator:
       return true
   false
 
@@ -104,9 +86,8 @@ func try_extend_rod(self: var World, p: Position, piston: Cell) =
   var current_pos = target_pos
 
   block collecting_chain:
-    while (let opt = self.try_get(current_pos); opt.is_some):
-      let current_cell = opt.get()
-      if current_cell.is_immovable(): break collecting_chain
+    while (let cell = self.get(current_pos); cell.is_some):
+      if cell.is_immovable(): break collecting_chain
       let next_pos = piston.direction.apply current_pos
       chain[current_pos] = next_pos
       current_pos = next_pos
@@ -128,9 +109,10 @@ func collect_plans(self: var World) =
         self.try_extend_rod(pos, cell)
 
     if cell.kind == ckRod:
-      let opt = self.try_get(cell.pistonPosition)
-      if opt.is_some and not (var piston = opt.get(); piston.activated):
-        self.plan(pos, newRetractRodPlan(0, cell.pistonPosition))
+      let piston_pos = cell.pistonPosition
+      let piston = self.get(piston_pos)
+      if piston.kind == ckPiston and not piston.activated:
+        self.plan(pos, newRetractRodPlan(piston_pos))
 
 func best_plan(entry: tuple[pos: Position, plan: Plan]): (int, int, int) =
   (-entry.plan.priority, entry.pos.y, entry.pos.x)
@@ -170,8 +152,9 @@ func resolve_conflicts(self: var World) =
     of pkRetractRod:
       affected = [pos].toHashSet()
     for aff_pos in affected:
-      if self.is_on(aff_pos):
-        self.mget(aff_pos).keep = false
+      if not self.current.pos_exists(aff_pos): continue
+      self.current.cell_mutation_it(aff_pos):
+        it.keep = false
 
 func apply_plans(self: var World) =
   ## Applies plans for a new world and 
@@ -186,14 +169,16 @@ func apply_plans(self: var World) =
   for pos, plan in self.plans.mpairs:
     case plan.kind:
     of pkExtendRod:
-      let piston = self.try_get(pos).get()
+      let piston = self.get(pos)
       for old_pos, new_pos in plan.chain.reversed_pairs:
         self.plan_move(old_pos, new_pos)
       let rod = newRod(self.counter.next(), piston.direction, pos)
       self.plan_place(plan.target, rod)
-      self.plan_mget(pos).rod = some(rod.id)
+      self.pending.cell_mutation_it(pos):
+        it.rod = rod.id
     of pkRetractRod:
-      self.plan_mget(plan.pistonPosition).rod = none(CellId)
+      self.pending.cell_mutation_it(plan.pistonPosition):
+        it.rod = NoneCellID
 
   swap(self.current, self.pending)
 

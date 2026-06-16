@@ -1,35 +1,41 @@
 import spatial
-import std/options
 
 type
   CellKind* = enum
-    ckNull, ckActivator, ckPiston, ckRod
+    ckNone, ckActivator, ckPiston, ckRod
 
-  CellId* = int
+  CellID* = int
 
   Cell* = object
-    id*: CellId
+    id*: CellID
     keep*: bool = true
     case kind*: CellKind
-    of ckActivator, ckNull: discard
+    of ckActivator, ckNone: discard
     of ckPiston:
       direction*: Direction
       priority*: int
       activated*: bool
-      rod*: Option[CellId] = none(CellId)
+      rod*: CellID
     of ckRod:
       pistonDirection*: Direction
       pistonPosition*: Position
 
-const NullCell* = Cell(id: -1, kind: ckNull, keep: false)
+const NoneCellID* = CellID(-1)
+const NoneCell* = Cell(id: NoneCellID, keep: false)
 
-func newActivator*(id: CellId): Cell = 
+func is_some*(cell: Cell): bool {.inline.} =
+  cell.kind != ckNone
+
+func is_some*(cell: CellID): bool {.inline.} =
+  cell >= 0
+
+func newActivator*(id: CellID): Cell = 
   Cell(id: id, kind: ckActivator)
 
-func newPiston*(id: CellId, direction: Direction, priority: int = 0, activated: bool = false): Cell =
-  Cell(id: id, kind: ckPiston, direction: direction, priority: priority, activated: activated)
+func newPiston*(id: CellID, direction: Direction, priority: int = 0, activated: bool = false): Cell =
+  Cell(id: id, kind: ckPiston, direction: direction, priority: priority, activated: activated, rod: NoneCellID)
 
-func newRod*(id: CellId, pistonDirection: Direction, pistonPosition: Position): Cell =
+func newRod*(id: CellID, pistonDirection: Direction, pistonPosition: Position): Cell =
   Cell(id: id, kind: ckRod, pistonDirection: pistonDirection, pistonPosition: pistonPosition)
 
 func is_immovable*(cell: Cell): bool = 
