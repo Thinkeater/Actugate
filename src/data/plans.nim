@@ -10,7 +10,7 @@ type
     case kind*: PlanKind
     of pkExtendRod:
       target*: Position
-      chain*: OrderedTable[Position, Position]
+      chain*: OrderedTable[Position, Position]  # TODO: seq[(Position, Position)]
     of pkRetractRod:
       pistonPosition*: Position
 
