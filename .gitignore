@@ -1,0 +1,9 @@
+nimble.develop
+nimble.paths
+nimbledeps
+
+build/
+
+# vscode
+.vscode/
+*.code-workspace
