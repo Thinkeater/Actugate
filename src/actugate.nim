@@ -2,7 +2,7 @@ import data/[cells, spatial]
 import core/[core, utils]
 import std/[tables, rdstdin, strutils, terminal]
 import raylib
-import render/[types, camera, renderer, utils]
+import render/[types, renderer, utils, grid, colors]
 
 raylib.setTraceLogLevel(TraceLogLevel.None)
 
@@ -190,15 +190,22 @@ proc handle(cmd: string, world: var World, cx: var int, cy: var int, tick: var i
         guiTick.inc
         accumulator -= TickInterval
       
-      rend.camera.handleInput(dt)
-      
+      rend.handleInput(dt)
+
       beginDrawing()
-      clearBackground(Color(r: 30, g: 30, b: 30, a: 255))
-      rend.camera.beginMode2D()
-      renderFrame(rend, world)
+      clearBackground(Background)
+      drawGrid(rend)
+      rend.beginMode()
+      renderFrame(rend, world, dt)
       endMode2D()
       
       drawText("Tick: " & $guiTick, 10, 30, 20, WHITE)
+      let mp = getMousePosition()
+      let cp = rend.screenToCell(mp)
+      drawText("Cell: " & $cp.x & ", " & $cp.y, 10, 50, 20, WHITE)
+      let cell = world.get(cp)
+      if cell.is_some:
+        drawText(($cell.kind)[2..^1], 10, 70, 20, WHITE)
       drawFPS(10, 10)
       endDrawing()
     

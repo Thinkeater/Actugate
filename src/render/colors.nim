@@ -1,6 +1,6 @@
 import raylib
 
-func newColor(r: uint8, g: uint8, b: uint8, a: uint8): Color {.inline.} =
+func newColor*(r: uint8, g: uint8, b: uint8, a: uint8): Color {.inline.} =
   ## Helper to easily make `Color` from RGBA
 
   Color(r: r, b: b, g: g, a: a)
@@ -8,7 +8,6 @@ func newColor(r: uint8, g: uint8, b: uint8, a: uint8): Color {.inline.} =
 
 const
   Background* = newColor(23, 23, 24, 255)
-  GridLine* = newColor(75, 75, 75, 255)
   Active* = newColor(48, 220, 100, 255)
   Inactive* = newColor(183, 48, 56, 255)
 
