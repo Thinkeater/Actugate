@@ -57,24 +57,60 @@ proc render*(world: World, cx: int, cy: int) =
         line.add "]"
     echo " ", line
 
-proc codedump*(world: World) =
-  for pos, cell in world.current.pairs:
-    case cell.kind
-    of ckNone, ckRod:
-      discard
+proc runGui*(world: var World, tick: var int) =
+  const
+    TickRate = 1
+    TickInterval = 1.0 / TickRate
+  
+  let config = RenderConfig(
+    tileSize: 32,
+    windowWidth: 800,
+    windowHeight: 600,
+    title: "Actugate"
+  )
+  
+  setConfigFlags(flags(VsyncHint, WindowResizable))
+  var rend = initRendererAndWindow(config)
+  var accumulator = 0.0
+  var guiTick = tick
+  
+  echo "GUI has been successfully opened in a new window"
+  while not windowShouldClose():
+    let dt = getFrameTime()
+    accumulator += dt
+    
+    if isWindowResized():
+      rend.updateWindowSize(getScreenWidth(), getScreenHeight())
+    
+    while accumulator >= TickInterval:
+      world.update()
+      guiTick.inc
+      accumulator -= TickInterval
+    
+    rend.handleInput(dt)
 
-    of ckActivator:
-      echo "world.place(newPos(" & $pos.x & ", " & $pos.y &
-           "), newActivator(world.counter.next()))"
+    beginDrawing()
+    clearBackground(Background)
+    drawGrid(rend)
+    rend.beginMode()
+    renderFrame(rend, world, dt)
+    endMode2D()
+    
+    drawText("Tick: " & $guiTick, 10, 30, 20, WHITE)
+    let mp = getMousePosition()
+    let cp = rend.screenToCell(mp)
+    drawText("Cell: " & $cp.x & ", " & $cp.y, 10, 50, 20, WHITE)
+    let cell = world.get(cp)
+    if cell.is_some:
+      drawText(($cell.kind)[2..^1], 10, 70, 20, WHITE)
+    drawFPS(10, 10)
+    endDrawing()
+  
+  closeWindow()
+  tick = guiTick
+  echo "GUI closed at tick " & $tick
 
-    of ckPiston:
-      echo "world.place(newPos(" & $pos.x & ", " & $pos.y &
-           "), newPiston(" &
-           "world.counter.next(), " &
-           $cell.direction &
-           ", priority=" & $cell.priority &
-           ", activated=" & $cell.activated &
-           "))"
+var saves: Table[string, (int, World)]
 
 proc handle(cmd: string, world: var World, cx: var int, cy: var int, tick: var int) =
   var dx, dy: int
@@ -158,75 +194,44 @@ proc handle(cmd: string, world: var World, cx: var int, cy: var int, tick: var i
     world.update
     echo "tick " & $tick
     tick.inc
-  elif cmd == "D":
-    codedump(world)
+  elif cmd[0] == 'S':
+    if cmd.len <= 2:
+      echo "Expected save name"
+      return
+    let name = cmd[2..^1].strip()
+    saves[name] = (tick, world)
+    echo "Saved world at tick " & $tick & " as '" & name & "'"
+  elif cmd[0] == 'L':
+    if cmd.len <= 2:
+      echo "Expected save name"
+      return
+    let name = cmd[2..^1].strip()
+    if name notin saves:
+      echo "Save '" & name & "' not found"
+      return
+    (tick, world) = saves[name]
+    echo "Loaded save '" & name & "' at tick " & $tick
+  elif cmd == "ls":
+    if saves.len == 0:
+      echo "No saves"
+    else:
+      for name, (t, w) in saves:
+        echo "  " & name & " (tick: " & $t & ", cells: " & $w.current.len & ")"
+  elif cmd.len >= 2 and cmd[0..1] == "RS":
+    if cmd.len <= 2:
+      saves.clear()
+      echo "All saves cleared"
+    else:
+      let name = cmd[3..^1].strip()
+      if name notin saves:
+        echo "Save '" & name & "' not found"
+        return
+      saves.del(name)
+      echo "Save '" & name & "' deleted"
   elif cmd == "gui" or cmd == "G":
-    const
-      TickRate = 1
-      TickInterval = 1.0 / TickRate
-    
-    let config = RenderConfig(
-      tileSize: 32,
-      windowWidth: 800,
-      windowHeight: 600,
-      title: "Actugate"
-    )
-    
-    setConfigFlags(flags(VsyncHint, WindowResizable))
-    var rend = initRendererAndWindow(config)
-    var accumulator = 0.0
-    var guiTick = tick
-    
-    echo "GUI has been successfully opened in a new window"
-    while not windowShouldClose():
-      let dt = getFrameTime()
-      accumulator += dt
-      
-      if isWindowResized():
-        rend.updateWindowSize(getScreenWidth(), getScreenHeight())
-      
-      while accumulator >= TickInterval:
-        world.update()
-        guiTick.inc
-        accumulator -= TickInterval
-      
-      rend.handleInput(dt)
-
-      beginDrawing()
-      clearBackground(Background)
-      drawGrid(rend)
-      rend.beginMode()
-      renderFrame(rend, world, dt)
-      endMode2D()
-      
-      drawText("Tick: " & $guiTick, 10, 30, 20, WHITE)
-      let mp = getMousePosition()
-      let cp = rend.screenToCell(mp)
-      drawText("Cell: " & $cp.x & ", " & $cp.y, 10, 50, 20, WHITE)
-      let cell = world.get(cp)
-      if cell.is_some:
-        drawText(($cell.kind)[2..^1], 10, 70, 20, WHITE)
-      drawFPS(10, 10)
-      endDrawing()
-    
-    closeWindow()
-    tick = guiTick
-    echo "GUI closed at tick " & $tick
-  elif cmd == "h" or cmd == "help":
-    echo "Commands:"
-    echo "  h or help  Show this message."
-    echo "  wasd       Move cursor. Multiple letters are allowed (ddasd, wa, sss)."
-    echo "  A          Place activator at cursor."
-    echo "  P[w/a/s/d] Place piston facing up/left/down/right."
-    echo "  E          Remove cell at cursor."
-    echo "  i          Show information about selected cell."
-    echo "  pN         Set cell priority. Example: p3, p-1."
-    echo "  t, Enter   Advance simulation by one tick."
-    echo "  /          Execute multiple commands in sequence."
-    echo "               Example: dsw/A or ww/Ps."
-    echo "  D          Code dump"
-    echo "  G or gui   Open graphical renderer"
-    echo "  q          Quit program."
+    runGui(world, tick)
+  elif cmd == "h":
+    echo "no :)"
   else: 
     echo "Unknown command: '" & cmd & "'"
 
@@ -252,11 +257,7 @@ while true:
   terminal.erase_screen()
   terminal.set_cursor_pos(0, 0)
   echo prompt & userInput & "\n"
-  if userInput.len == 0:
-    world.update
-    echo "tick " & $tick
-    tick.inc
-  else:
+  if userInput.len != 0:
     for cmd in userInput.split('/'):
       if cmd.strip().len != 0:
         handle(cmd.strip(), world, cx, cy, tick)
