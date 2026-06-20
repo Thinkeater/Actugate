@@ -28,15 +28,30 @@ func is_some*(cell: Cell): bool {.inline.} =
 
 func is_some*(cell: CellID): bool {.inline.} =
   cell >= 0
+  
+func newActivator*(id: CellID, keep: bool = true): Cell = 
+  Cell(id: id, kind: ckActivator, keep: keep)
 
-func newActivator*(id: CellID): Cell = 
-  Cell(id: id, kind: ckActivator)
+func newPiston*(id: CellID, direction: Direction, priority: int = 0, activated: bool = false, rod: CellID = NoneCellID, keep: bool = true): Cell =
+  Cell(id: id, kind: ckPiston, direction: direction, priority: priority, activated: activated, rod: rod, keep: keep)
 
-func newPiston*(id: CellID, direction: Direction, priority: int = 0, activated: bool = false): Cell =
-  Cell(id: id, kind: ckPiston, direction: direction, priority: priority, activated: activated, rod: NoneCellID)
-
-func newRod*(id: CellID, pistonDirection: Direction, pistonPosition: Position): Cell =
-  Cell(id: id, kind: ckRod, pistonDirection: pistonDirection, pistonPosition: pistonPosition)
+func newRod*(id: CellID, pistonDirection: Direction, pistonPosition: Position, keep: bool = true): Cell =
+  Cell(id: id, kind: ckRod, pistonDirection: pistonDirection, pistonPosition: pistonPosition, keep: keep)
 
 func is_immovable*(cell: Cell): bool = 
   cell.kind == ckRod or (cell.kind == ckPiston and cell.activated)
+
+func matches*(cell: Cell, other: Cell): bool =
+  if cell.kind != other.kind or cell.keep != other.keep: return false
+  
+  case cell.kind
+  of ckNone, ckActivator:
+    return true
+  of ckPiston:
+    return cell.direction == other.direction and
+           cell.priority == other.priority and
+           cell.activated == other.activated and
+           cell.rod.is_some == other.rod.is_some
+  of ckRod:
+    return cell.pistonDirection == other.pistonDirection and
+           cell.pistonPosition == other.pistonPosition

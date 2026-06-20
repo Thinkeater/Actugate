@@ -114,6 +114,7 @@ func collect_plans(self: var World) =
       let piston_pos = cell.pistonPosition
       let piston = self.get(piston_pos)
       if piston.kind == ckPiston and not piston.activated:
+        cell.keep = false
         self.plan(pos, newRetractRodPlan(piston_pos))
 
 func best_plan(entry: tuple[pos: Position, plan: Plan]): (int, int, int) =
@@ -167,8 +168,6 @@ func apply_plans(self: var World) =
   for pos, cell in self.current.pairs:
     if cell.keep:
       self.pending[pos] = cell
-    else:
-      self.counter.del(cell.id)
 
   for pos, plan in self.plans.mpairs:
     case plan.kind:

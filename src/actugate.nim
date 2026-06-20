@@ -1,6 +1,6 @@
 import data/[cells, spatial]
 import core/[core, utils]
-import std/[tables, rdstdin, strutils, terminal]
+import std/[tables, rdstdin, strutils, terminal, strformat, os]
 import raylib
 import render/[types, renderer, utils, grid, colors]
 
@@ -110,7 +110,104 @@ proc runGui*(world: var World, tick: var int) =
   tick = guiTick
   echo "GUI closed at tick " & $tick
 
+proc generateTestInit(lines: var seq[string], world: World) =
+  lines.add("    var world = World()")
+  for pos, cell in world.current:
+    let x = pos.x
+    let y = pos.y
+    case cell.kind
+    of ckActivator:
+      lines.add(&"    world.place(newPos({x}, {y}), newActivator(CellID({cell.id}), keep = {cell.keep}))")
+    of ckPiston:
+      let dir = cell.direction
+      let pri = cell.priority
+      let act = cell.activated
+      let rod = if cell.rod.is_some: &"CellID({cell.rod})" else: "NoneCellID"
+      lines.add(&"    world.place(newPos({x}, {y}), newPiston(CellID({cell.id}), Direction.{dir}, priority = {pri}, activated = {act}, rod = {rod}, keep = {cell.keep}))")
+    of ckRod:
+      let pDir = cell.pistonDirection
+      let pPos = cell.pistonPosition
+      lines.add(&"    world.place(newPos({x}, {y}), newRod(CellID({cell.id}), Direction.{pDir}, newPos({pPos.x}, {pPos.y}), keep = {cell.keep}))")
+    of ckNone:
+      discard
+
+proc generateTestChecks(lines: var seq[string], world: World) =
+  for pos, cell in world.current:
+    let x = pos.x
+    let y = pos.y
+    case cell.kind
+    of ckActivator:
+      lines.add(&"    check world.get(newPos({x}, {y})).matches(newActivator(CellID({cell.id}), keep = {cell.keep}))")
+    of ckPiston:
+      let dir = cell.direction
+      let pri = cell.priority
+      let act = cell.activated
+      let rod = if cell.rod.is_some: &"CellID({cell.rod})" else: "NoneCellID"
+      lines.add(&"    check world.get(newPos({x}, {y})).matches(newPiston(CellID({cell.id}), Direction.{dir}, priority = {pri}, activated = {act}, rod = {rod}, keep = {cell.keep}))")
+    of ckRod:
+      let pDir = cell.pistonDirection
+      let pPos = cell.pistonPosition
+      lines.add(&"    check world.get(newPos({x}, {y})).matches(newRod(CellID({cell.id}), Direction.{pDir}, newPos({pPos.x}, {pPos.y}), keep = {cell.keep}))")
+    of ckNone:
+      lines.add(&"    check world.get(newPos({x}, {y})).kind == ckNone")
+
 var saves: Table[string, (int, World)]
+
+proc generateTest(self: World, name: string, args: seq[string]) =
+  var tests: seq[seq[string]] = @[]
+  var cur: seq[string] = @[]
+
+  for x in args:
+    if x == "|":
+      tests.add cur
+      cur = @[]
+    else:
+      let xs = x.strip()
+      if xs notin saves:
+        echo "Save '" & xs & "' does not exists"
+        return
+      cur.add xs
+
+  if cur.len > 0: tests.add cur
+
+  var lines: seq[string] = @[
+    &"# {name}.nim | Generated",
+    "import unittest",
+    "import core/core",
+    "import data/[cells, spatial]",
+    "",
+    &"suite \"{name}\":"
+  ]
+
+  for test in tests:
+    let init_name = test[0]
+    var init_tick = saves[init_name][0]
+    lines.add(&"  test \"{init_name}\":")
+    generateTestInit(lines, saves[init_name][1])
+    for expected_name in test[1..^1]:
+      let (tick, expected_world) = saves[expected_name]
+      let delta_ticks = tick - init_tick
+      init_tick = tick
+      lines.add("")
+      lines.add(&"    # test expected \"{expected_name}\" after {delta_ticks} tick(-s):")
+      lines.add(&"    for _ in 0..<{delta_ticks}: world.update()")
+      generateTestChecks(lines, expected_world)
+
+  let testsDir = "tests"
+  if not dirExists(testsDir):
+    try:
+      createDir(testsDir)
+      echo "Created directory: " & testsDir
+    except IOError:
+      echo "Failed to create directory: " & testsDir
+      return
+
+  let filePath = testsDir / (name & ".nim")
+  try:
+    writeFile(filePath, lines.join("\n"))
+    echo "Test saved to: " & filePath
+  except IOError:
+    echo "Failed to save test to: " & filePath
 
 proc handle(cmd: string, world: var World, cx: var int, cy: var int, tick: var int) =
   var dx, dy: int
@@ -217,6 +314,10 @@ proc handle(cmd: string, world: var World, cx: var int, cy: var int, tick: var i
     else:
       for name, (t, w) in saves:
         echo "  " & name & " (tick: " & $t & ", cells: " & $w.current.len & ")"
+  elif cmd == "R":
+    world = World()
+    tick = 0
+    echo "World reset"
   elif cmd.len >= 2 and cmd[0..1] == "RS":
     if cmd.len <= 2:
       saves.clear()
@@ -228,6 +329,12 @@ proc handle(cmd: string, world: var World, cx: var int, cy: var int, tick: var i
         return
       saves.del(name)
       echo "Save '" & name & "' deleted"
+  elif cmd[0] == 'T':
+    if cmd.len < 2:
+      echo "Using: T name initial_save expected_save | ..."
+      return
+    let args = cmd[2..^1].split(' ')
+    generateTest(world, args[0], args[1..^1])
   elif cmd == "gui" or cmd == "G":
     runGui(world, tick)
   elif cmd == "h":
