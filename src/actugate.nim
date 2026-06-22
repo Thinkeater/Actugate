@@ -192,6 +192,7 @@ proc generateTest(self: World, name: string, args: seq[string]) =
       lines.add(&"    # test expected \"{expected_name}\" after {delta_ticks} tick(-s):")
       lines.add(&"    for _ in 0..<{delta_ticks}: world.update()")
       generateTestChecks(lines, expected_world)
+    lines.add("")
 
   let testsDir = "tests"
   if not dirExists(testsDir):
