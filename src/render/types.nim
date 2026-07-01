@@ -1,4 +1,6 @@
-import raylib, camera, coords, ../data/spatial
+import raylib
+import camera, coords, sprites
+import ../data/spatial
 
 type
   RenderConfig* = object
@@ -10,6 +12,7 @@ type
   Renderer* = object
     config*: RenderConfig
     camCtrl*: CameraController
+    sprites*: Sprites
 
 proc handleInput*(rend: var Renderer, dt: float32) =
   rend.camCtrl.update(dt)

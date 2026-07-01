@@ -1,63 +1,109 @@
+## Cell drawing
+
 import ../data/cells
 import ../data/spatial
 import raylib
-import colors
+import atlas, sprites
 
 const
-  CELL_SIZE = 32
+  HalfCell = sprites.Cell.float32 * 0.5
+  DirAngles: array[Direction, float32] = [0, 90, 180, 270]  # RIGHT DOWN LEFT UP
+  CenterOrigin = Vector2(x: HalfCell, y: HalfCell)
 
-  BORDER_SIZE = 4
-  ROD_THICKNESS = 4
-  ROD_TIP_THICKNESS = 4
 
-  INNER_OFFSET = BORDER_SIZE * 2
-  INNER_SIZE_OFFSET = BORDER_SIZE * 4
-  ROD_TIP_LENGTH = CELL_SIZE - ROD_TIP_THICKNESS * 2
-  ROD_OFFSET = (CELL_SIZE - ROD_THICKNESS) div 2
-  TIP_OFFSET = CELL_SIZE - ROD_TIP_THICKNESS
+proc drawRodTip*(spr: Sprites, dir: Direction,
+                 wx, wy, ts: float32) =
+  let tipDest = Rectangle(x: wx + ts * 0.5, y: wy + ts * 0.5,
+                           width: ts, height: ts)
+  let origin = Vector2(x: ts * 0.5, y: ts * 0.5)
+  spr.atlas.draw(spr.rodTip, tipDest,
+                 origin = origin,
+                 rotation = DirAngles[dir])
 
-proc drawCell*(cell: Cell, pos: Position, tileSize: int) =
-  let ts: int32 = tileSize.int32
-  let wx = pos.x.int32 * ts
-  let wy = pos.y.int32 * ts
 
+proc drawRodBody*(spr: Sprites, dir: Direction,
+                  wx, wy, ts: float32) =
+  ## Draw the thin rod bar at pixel position (wx, wy).
+  let bodyDest = Rectangle(x: wx, y: wy, width: ts, height: ts)
+  if dir in {Direction.RIGHT, Direction.LEFT}:
+    spr.atlas.draw(spr.rodBodyH, bodyDest)
+  else:
+    spr.atlas.draw(spr.rodBodyV, bodyDest)
+
+
+proc drawPistonBody*(spr: Sprites, cell: Cell,
+                     wx, wy: float32, tileSize: int) =
+  ## Draw just the piston body (active or inactive) at pixel position.
+  ## Does NOT draw rod tip or rod body -- those are handled separately.
+  let ts = tileSize.float32
+  let dest = Rectangle(x: wx, y: wy, width: ts, height: ts)
+  if cell.activated:
+    spr.atlas.draw(spr.pistonActive, dest)
+  else:
+    spr.atlas.draw(spr.pistonInactive, dest)
+
+
+proc drawPiston*(spr: Sprites, cell: Cell, wx, wy: float32,
+                 tileSize: int, rodT: float32) =
+  ## Draw a complete piston with rod animation.
+  ## `rodT` controls rod extension
+
+  let ts = tileSize.float32
+  let dir = cell.direction
+
+  # Lerp
+  let rx = wx + dir.dx.float32 * ts * rodT
+  let ry = wy + dir.dy.float32 * ts * rodT
+
+  # rod body only when extending
+  if rodT > 0:
+    spr.drawRodBody(dir, rx, ry, ts)
+
+  # piston body
+  spr.drawPistonBody(cell, wx, wy, tileSize)
+
+  # rod tip
+  spr.drawRodTip(dir, rx, ry, ts)
+
+proc drawCell*(spr: Sprites, cell: Cell, pos: Position, tileSize: int) =
+  let ts = tileSize.float32
+  let wx = pos.x.float32 * ts
+  let wy = pos.y.float32 * ts
+  let dest = Rectangle(x: wx, y: wy, width: ts, height: ts)
   case cell.kind
-  of ckActivator:
-    drawRectangle(wx, wy, ts, ts, Active)
-    drawRectangle(wx + BORDER_SIZE, wy + BORDER_SIZE, ts - INNER_OFFSET, ts - INNER_OFFSET, Active.colorBrightness(-0.3))
-    drawRectangle(wx + INNER_OFFSET, wy + INNER_OFFSET, ts - INNER_SIZE_OFFSET, ts - INNER_SIZE_OFFSET, Active)
-
-  of ckNone:
+  of ckNone, ckRod:
     discard
-
+  of ckActivator:
+    spr.atlas.draw(spr.activator, dest)
   of ckPiston:
-    drawRectangle(wx, wy, ts, ts, Piston)
-    drawRectangle(wx + BORDER_SIZE, wy + BORDER_SIZE, ts - INNER_OFFSET, ts - INNER_OFFSET, Piston.colorBrightness(-0.3))
-    if cell.activated:
-      drawRectangle(wx + INNER_OFFSET, wy + INNER_OFFSET, ts - INNER_SIZE_OFFSET, ts - INNER_SIZE_OFFSET, Active)
-    else:
-      drawRectangle(wx + INNER_OFFSET, wy + INNER_OFFSET, ts - INNER_SIZE_OFFSET, ts - INNER_SIZE_OFFSET, Inactive)
-      case cell.direction
-      of RIGHT:
-        drawRectangle(wx + TIP_OFFSET, wy + BORDER_SIZE, ROD_TIP_THICKNESS, ROD_TIP_LENGTH, Rod)
-      of LEFT:
-        drawRectangle(wx, wy + BORDER_SIZE, ROD_TIP_THICKNESS, ROD_TIP_LENGTH, Rod)
-      of UP:
-        drawRectangle(wx + BORDER_SIZE, wy, ROD_TIP_LENGTH, ROD_TIP_THICKNESS, Rod)
-      of DOWN:
-        drawRectangle(wx + BORDER_SIZE, wy + TIP_OFFSET, ROD_TIP_LENGTH, ROD_TIP_THICKNESS, Rod)
+    spr.drawPiston(cell, wx, wy, tileSize, 0)
 
-  of ckRod:
-    case cell.pistonDirection
-    of RIGHT:
-      drawRectangle(wx, wy + ROD_OFFSET, ts, ROD_THICKNESS, Rod.colorBrightness(-0.3))
-      drawRectangle(wx + TIP_OFFSET, wy + BORDER_SIZE, ROD_TIP_THICKNESS, ROD_TIP_LENGTH, Rod)
-    of LEFT:
-      drawRectangle(wx, wy + ROD_OFFSET, ts, ROD_THICKNESS, Rod.colorBrightness(-0.3))
-      drawRectangle(wx, wy + BORDER_SIZE, ROD_TIP_THICKNESS, ROD_TIP_LENGTH, Rod)
-    of UP:
-      drawRectangle(wx + ROD_OFFSET, wy, ROD_THICKNESS, ts, Rod.colorBrightness(-0.3))
-      drawRectangle(wx + BORDER_SIZE, wy, ROD_TIP_LENGTH, ROD_TIP_THICKNESS, Rod)
-    of DOWN:
-      drawRectangle(wx + ROD_OFFSET, wy, ROD_THICKNESS, ts, Rod.colorBrightness(-0.3))
-      drawRectangle(wx + BORDER_SIZE, wy + TIP_OFFSET, ROD_TIP_LENGTH, ROD_TIP_THICKNESS, Rod)
+proc drawCellAt*(spr: Sprites, cell: Cell, wx, wy: float32, tileSize: int) =
+  let ts = tileSize.float32
+  let dest = Rectangle(x: wx, y: wy, width: ts, height: ts)
+  case cell.kind
+  of ckNone, ckRod:
+    discard
+  of ckActivator:
+    spr.atlas.draw(spr.activator, dest)
+  of ckPiston:
+    spr.drawPiston(cell, wx, wy, tileSize, 0)
+
+proc drawCellScaled*(spr: Sprites, cell: Cell, pos: Position,
+                     tileSize: int, scale: float32) =
+  if scale <= 0: return
+  let ts = tileSize.float32
+  let s = ts * scale
+  let cx = pos.x.float32 * ts + (ts - s) * 0.5
+  let cy = pos.y.float32 * ts + (ts - s) * 0.5
+  let dest = Rectangle(x: cx, y: cy, width: s, height: s)
+  case cell.kind
+  of ckNone, ckRod:
+    discard
+  of ckActivator:
+    spr.atlas.draw(spr.activator, dest)
+  of ckPiston:
+    if cell.activated:
+      spr.atlas.draw(spr.pistonActive, dest)
+    else:
+      spr.atlas.draw(spr.pistonInactive, dest)

@@ -2,7 +2,7 @@ import data/[cells, spatial]
 import core/[core, utils]
 import std/[tables, rdstdin, strutils, terminal, strformat, os]
 import raylib
-import render/[types, renderer, utils, grid, colors]
+import render/[types, renderer, utils, grid, colors, animation]
 
 raylib.setTraceLogLevel(TraceLogLevel.None)
 
@@ -59,7 +59,7 @@ proc render*(world: World, cx: int, cy: int) =
 
 proc runGui*(world: var World, tick: var int) =
   const
-    TickRate = 1
+    TickRate = 0.2
     TickInterval = 1.0 / TickRate
   
   let config = RenderConfig(
@@ -71,8 +71,10 @@ proc runGui*(world: var World, tick: var int) =
   
   setConfigFlags(flags(VsyncHint, WindowResizable))
   var rend = initRendererAndWindow(config)
-  var accumulator = 0.0
+  var accumulator = TickInterval  # trigger first tick immediately
   var guiTick = tick
+  var animFrame: AnimFrame
+  animFrame.initFromWorld(world)
   
   echo "GUI has been successfully opened in a new window"
   while not windowShouldClose():
@@ -83,17 +85,22 @@ proc runGui*(world: var World, tick: var int) =
       rend.updateWindowSize(getScreenWidth(), getScreenHeight())
     
     while accumulator >= TickInterval:
-      world.update()
+      world.collect_plans()
+      world.resolve_conflicts()
+      animFrame.buildFromPlans(world)
+      world.apply_plans()
       guiTick.inc
       accumulator -= TickInterval
     
+    let tickProgress = (accumulator / TickInterval).float32
+
     rend.handleInput(dt)
 
     beginDrawing()
     clearBackground(Background)
     drawGrid(rend)
     rend.beginMode()
-    renderFrame(rend, world, dt)
+    animFrame.draw(rend.sprites, rend.config.tileSize, tickProgress)
     endMode2D()
     
     drawText("Tick: " & $guiTick, 10, 30, 20, WHITE)

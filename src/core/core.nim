@@ -95,7 +95,7 @@ func try_extend_rod(self: var World, p: Position, piston: Cell) =
       current_pos = next_pos
     self.plan(p, newExtendRodPlan(piston.priority, target_pos, chain))
 
-func collect_plans(self: var World) =
+func collect_plans*(self: var World) =
   ## Collects plans based on the current 
   ## state of the world, without changing it
 
@@ -120,7 +120,7 @@ func collect_plans(self: var World) =
 func best_plan(entry: tuple[pos: Position, plan: Plan]): (int, int, int) =
   (-entry.plan.priority, entry.pos.y, entry.pos.x)
 
-func resolve_conflicts(self: var World) =
+func resolve_conflicts*(self: var World) =
   var index = initTable[Position, seq[tuple[pos: Position, plan: Plan]]]()
   for pos, plan in self.plans.mpairs:
     var affected = initHashSet[Position]()
@@ -159,7 +159,7 @@ func resolve_conflicts(self: var World) =
       self.current.cell_mutation_it(aff_pos):
         it.keep = false
 
-func apply_plans(self: var World) =
+func apply_plans*(self: var World) =
   ## Applies plans for a new world and 
   ## swaps new and old places
   
