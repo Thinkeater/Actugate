@@ -59,7 +59,7 @@ proc render*(world: World, cx: int, cy: int) =
 
 proc runGui*(world: var World, tick: var int) =
   const
-    TickRate = 0.2
+    TickRate = 5
     TickInterval = 1.0 / TickRate
   
   let config = RenderConfig(
@@ -71,12 +71,14 @@ proc runGui*(world: var World, tick: var int) =
   
   setConfigFlags(flags(VsyncHint, WindowResizable))
   var rend = initRendererAndWindow(config)
-  var accumulator = TickInterval  # trigger first tick immediately
+  var accumulator = 0.0
   var guiTick = tick
   var animFrame: AnimFrame
   animFrame.initFromWorld(world)
   
   echo "GUI has been successfully opened in a new window"
+  echo "Press SPACE to advance one tick, ESC to close"
+  
   while not windowShouldClose():
     let dt = getFrameTime()
     accumulator += dt
@@ -84,15 +86,18 @@ proc runGui*(world: var World, tick: var int) =
     if isWindowResized():
       rend.updateWindowSize(getScreenWidth(), getScreenHeight())
     
-    while accumulator >= TickInterval:
+    if isKeyPressed(SPACE):
       world.collect_plans()
       world.resolve_conflicts()
       animFrame.buildFromPlans(world)
       world.apply_plans()
       guiTick.inc
-      accumulator -= TickInterval
+      accumulator = 0.0
     
-    let tickProgress = (accumulator / TickInterval).float32
+    let tickProgress = if accumulator < TickInterval: 
+      (accumulator / TickInterval).float32
+    else:
+      1.0
 
     rend.handleInput(dt)
 
@@ -104,12 +109,14 @@ proc runGui*(world: var World, tick: var int) =
     endMode2D()
     
     drawText("Tick: " & $guiTick, 10, 30, 20, WHITE)
+    drawText("Press SPACE to advance", 10, 50, 20, WHITE)
+    
     let mp = getMousePosition()
     let cp = rend.screenToCell(mp)
-    drawText("Cell: " & $cp.x & ", " & $cp.y, 10, 50, 20, WHITE)
+    drawText("Cell: " & $cp.x & ", " & $cp.y, 10, 70, 20, WHITE)
     let cell = world.get(cp)
     if cell.is_some:
-      drawText(($cell.kind)[2..^1], 10, 70, 20, WHITE)
+      drawText(($cell.kind)[2..^1], 10, 90, 20, WHITE)
     drawFPS(10, 10)
     endDrawing()
   
@@ -346,7 +353,42 @@ proc handle(cmd: string, world: var World, cx: var int, cy: var int, tick: var i
   elif cmd == "gui" or cmd == "G":
     runGui(world, tick)
   elif cmd == "h":
-    echo "no :)"
+    echo """
+ACTUGATE --- Commands:
+
+MOVEMENT:
+  w,a,s,d  - Move cursor
+  (can combine, e.g. 'wasd' moves 4 steps)
+
+PLACEMENT:
+  A        - Place Activator
+  Pw/Pa/Ps/Pd 
+           - Place Piston (Up/Left/Down/Right)
+  E        - Erase cell
+  p<N>     - Set priority (e.g. p5, p-3)
+
+TIME:
+  t        - One tick
+  R        - Reset world
+
+SAVES:
+  S <name> - Save state
+  L <name> - Load state
+  ls       - List saves
+  RS       - Delete all saves
+  RS <name>- Delete specific save
+
+GUI:
+  G / gui  - Open graphical window
+
+TESTS:
+  T <name> <save1> <save2> | <save1> <save3> 
+           - Generate unit tests
+
+OTHER:
+  i        - Inspect cell
+  q        - Quit
+"""
   else: 
     echo "Unknown command: '" & cmd & "'"
 
