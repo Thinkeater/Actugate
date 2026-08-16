@@ -6,9 +6,9 @@ import raylib
 import atlas, sprites
 
 const
-  HalfCell = sprites.Cell.float32 * 0.5
+  # HalfCell = sprites.Cell.float32 * 0.5  # xlebore3o4ka: закомментировал, потому что не используется
   DirAngles: array[Direction, float32] = [0, 90, 180, 270]  # RIGHT DOWN LEFT UP
-  CenterOrigin = Vector2(x: HalfCell, y: HalfCell)
+  # CenterOrigin = Vector2(x: HalfCell, y: HalfCell)  # xlebore3o4ka: закомментировал, потому что не используется
 
 
 proc drawRodTip*(spr: Sprites, dir: Direction,
@@ -71,7 +71,7 @@ proc drawCell*(spr: Sprites, cell: Cell, pos: Position, tileSize: int) =
   let wy = pos.y.float32 * ts
   let dest = Rectangle(x: wx, y: wy, width: ts, height: ts)
   case cell.kind
-  of ckNone, ckRod:
+  of ckNone, ckRod, ckStickyPiston: # @xlebore3o4ka TODO: отрисовка ckStickyPiston
     discard
   of ckActivator:
     spr.atlas.draw(spr.activator, dest)
@@ -82,7 +82,7 @@ proc drawCellAt*(spr: Sprites, cell: Cell, wx, wy: float32, tileSize: int) =
   let ts = tileSize.float32
   let dest = Rectangle(x: wx, y: wy, width: ts, height: ts)
   case cell.kind
-  of ckNone, ckRod:
+  of ckNone, ckRod, ckStickyPiston: # @xlebore3o4ka TODO: отрисовка ckStickyPiston
     discard
   of ckActivator:
     spr.atlas.draw(spr.activator, dest)
@@ -98,7 +98,7 @@ proc drawCellScaled*(spr: Sprites, cell: Cell, pos: Position,
   let cy = pos.y.float32 * ts + (ts - s) * 0.5
   let dest = Rectangle(x: cx, y: cy, width: s, height: s)
   case cell.kind
-  of ckNone, ckRod:
+  of ckNone, ckRod, ckStickyPiston: # @xlebore3o4ka TODO: отрисовка ckStickyPiston
     discard
   of ckActivator:
     spr.atlas.draw(spr.activator, dest)

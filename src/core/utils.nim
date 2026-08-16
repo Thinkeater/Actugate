@@ -11,15 +11,11 @@ func minBy*[T, K](items: openArray[T]; key: proc(x: T): K {.noSideEffect.}): T =
       best = current
       result = items[i]
 
-iterator reversedPairs*[T, V](t: OrderedTable[T, V]): (T, V) =
-  var keys = newSeq[T]()
-  for key in t.keys:
-    keys.add(key)
-  for i in countdown(keys.len - 1, 0):
-    let key = keys[i]
-    yield (key, t[key])
+iterator reversedPairs*[T, V](s: seq[(T, V)]): (T, V) =
+  for i in countdown(s.len - 1, 0):
+    yield s[i]
 
-macro cell_mutation_it*(world_container: untyped, pos: untyped, body: untyped): untyped =
+macro cellMutationIt*(world_container: untyped, pos: untyped, body: untyped): untyped =
   let cellVar = ident("it")
   let posVar = genSym(nskLet, "pos")
   
@@ -30,7 +26,7 @@ macro cell_mutation_it*(world_container: untyped, pos: untyped, body: untyped): 
       `body`
     `world_container`[`posVar`] = `cellVar`
 
-func pos_exists*[T, V](world_container: Table[T, V], pos: Position): bool =
+template posExists*[T, V](world_container: Table[T, V], pos: Position): bool =
   pos in world_container
 
 macro dlog*(args: varargs[untyped]): untyped =

@@ -78,7 +78,7 @@ proc buildFromPlans*(frame: var AnimFrame, world: World) =
       cell: world.get(planPos), kind: akPiston, pos: planPos,
       rodAnim: raExtending))
 
-    for fromPos, toPos in plan.chain:
+    for (fromPos, toPos) in plan.chain:
       handled.incl(fromPos)
       frame.items.add(AnimState(
         cell: world.get(fromPos), kind: akMove,

@@ -2,7 +2,7 @@ import spatial
 
 type
   CellKind* = enum
-    ckNone, ckActivator, ckPiston, ckRod
+    ckNone, ckActivator, ckPiston, ckRod, ckStickyPiston
 
   CellID* = int
 
@@ -11,7 +11,7 @@ type
     keep*: bool = true
     case kind*: CellKind
     of ckActivator, ckNone: discard
-    of ckPiston:
+    of ckPiston, ckStickyPiston:
       direction*: Direction
       priority*: int
       activated*: bool
@@ -19,14 +19,15 @@ type
     of ckRod:
       pistonDirection*: Direction
       pistonPosition*: Position
+      pistonKind*: CellKind
 
 const NoneCellID* = CellID(-1)
 const NoneCell* = Cell(id: NoneCellID, keep: false)
 
-func is_some*(cell: Cell): bool {.inline.} =
+template isSome*(cell: Cell): bool =
   cell.kind != ckNone
 
-func is_some*(cell: CellID): bool {.inline.} =
+template isSome*(cell: CellID): bool =
   cell >= 0
   
 func newActivator*(id: CellID, keep: bool = true): Cell = 
@@ -35,11 +36,14 @@ func newActivator*(id: CellID, keep: bool = true): Cell =
 func newPiston*(id: CellID, direction: Direction, priority: int = 0, activated: bool = false, rod: CellID = NoneCellID, keep: bool = true): Cell =
   Cell(id: id, kind: ckPiston, direction: direction, priority: priority, activated: activated, rod: rod, keep: keep)
 
-func newRod*(id: CellID, pistonDirection: Direction, pistonPosition: Position, keep: bool = true): Cell =
-  Cell(id: id, kind: ckRod, pistonDirection: pistonDirection, pistonPosition: pistonPosition, keep: keep)
+func newStickyPiston*(id: CellID, direction: Direction, priority: int = 0, activated: bool = false, rod: CellID = NoneCellID, keep: bool = true): Cell =
+  Cell(id: id, kind: ckStickyPiston, direction: direction, priority: priority, activated: activated, rod: rod, keep: keep)
+
+func newRod*(id: CellID, pistonDirection: Direction, pistonPosition: Position, pistonKind: CellKind, keep: bool = true): Cell =
+  Cell(id: id, kind: ckRod, pistonDirection: pistonDirection, pistonPosition: pistonPosition, pistonKind: pistonKind, keep: keep)
 
 func is_immovable*(cell: Cell): bool = 
-  cell.kind == ckRod or (cell.kind == ckPiston and cell.activated)
+  cell.kind == ckRod or (cell.kind in {ckPiston, ckStickyPiston} and cell.activated)
 
 func matches*(cell: Cell, other: Cell): bool =
   if cell.kind != other.kind or cell.keep != other.keep: return false
@@ -47,7 +51,7 @@ func matches*(cell: Cell, other: Cell): bool =
   case cell.kind
   of ckNone, ckActivator:
     return true
-  of ckPiston:
+  of ckPiston, ckStickyPiston:
     return cell.direction == other.direction and
            cell.priority == other.priority and
            cell.activated == other.activated and

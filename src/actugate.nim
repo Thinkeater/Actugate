@@ -51,6 +51,14 @@ proc render*(world: World, cx: int, cy: int) =
           of DOWN:  line.add letter & (if has_rod: "*" else: "v")
           of LEFT:  line.add (if has_rod: "*" else: "<") & letter
           of UP:    line.add (if has_rod: "*" else: "^") & letter
+        of ckStickyPiston:
+          let letter = if cell.activated: "S" else: "s"
+          let has_rod = cell.rod.is_some
+          case cell.direction
+          of RIGHT: line.add letter & (if has_rod: "*" else: ">")
+          of DOWN:  line.add letter & (if has_rod: "*" else: "v")
+          of LEFT:  line.add (if has_rod: "*" else: "<") & letter
+          of UP:    line.add (if has_rod: "*" else: "^") & letter
       else:
         line.add ".."
       if (x, y) == (cx, cy):
@@ -77,7 +85,6 @@ proc runGui*(world: var World, tick: var int) =
   animFrame.initFromWorld(world)
   
   echo "GUI has been successfully opened in a new window"
-  echo "Press SPACE to advance one tick, ESC to close"
   
   while not windowShouldClose():
     let dt = getFrameTime()
@@ -109,7 +116,6 @@ proc runGui*(world: var World, tick: var int) =
     endMode2D()
     
     drawText("Tick: " & $guiTick, 10, 30, 20, WHITE)
-    drawText("Press SPACE to advance", 10, 50, 20, WHITE)
     
     let mp = getMousePosition()
     let cp = rend.screenToCell(mp)
@@ -138,6 +144,12 @@ proc generateTestInit(lines: var seq[string], world: World) =
       let act = cell.activated
       let rod = if cell.rod.is_some: &"CellID({cell.rod})" else: "NoneCellID"
       lines.add(&"    world.place(newPos({x}, {y}), newPiston(CellID({cell.id}), Direction.{dir}, priority = {pri}, activated = {act}, rod = {rod}, keep = {cell.keep}))")
+    of ckStickyPiston:
+      let dir = cell.direction
+      let pri = cell.priority
+      let act = cell.activated
+      let rod = if cell.rod.is_some: &"CellID({cell.rod})" else: "NoneCellID"
+      lines.add(&"    world.place(newPos({x}, {y}), newStickyPiston(CellID({cell.id}), Direction.{dir}, priority = {pri}, activated = {act}, rod = {rod}, keep = {cell.keep}))")
     of ckRod:
       let pDir = cell.pistonDirection
       let pPos = cell.pistonPosition
@@ -158,6 +170,12 @@ proc generateTestChecks(lines: var seq[string], world: World) =
       let act = cell.activated
       let rod = if cell.rod.is_some: &"CellID({cell.rod})" else: "NoneCellID"
       lines.add(&"    check world.get(newPos({x}, {y})).matches(newPiston(CellID({cell.id}), Direction.{dir}, priority = {pri}, activated = {act}, rod = {rod}, keep = {cell.keep}))")
+    of ckStickyPiston:
+      let dir = cell.direction
+      let pri = cell.priority
+      let act = cell.activated
+      let rod = if cell.rod.is_some: &"CellID({cell.rod})" else: "NoneCellID"
+      lines.add(&"    check world.get(newPos({x}, {y})).matches(newStickyPiston(CellID({cell.id}), Direction.{dir}, priority = {pri}, activated = {act}, rod = {rod}, keep = {cell.keep}))")
     of ckRod:
       let pDir = cell.pistonDirection
       let pPos = cell.pistonPosition
@@ -271,6 +289,11 @@ proc handle(cmd: string, world: var World, cx: var int, cy: var int, tick: var i
     case cell.kind:
     of ckNone, ckActivator: discard
     of ckPiston:
+      echo "  direction: " & $cell.direction
+      echo "  priority: " & $cell.priority
+      echo "  activated: " & $cell.activated
+      echo "  rodID: " & (if cell.rod.is_some: $cell.rod else: "absent")
+    of ckStickyPiston:
       echo "  direction: " & $cell.direction
       echo "  priority: " & $cell.priority
       echo "  activated: " & $cell.activated
